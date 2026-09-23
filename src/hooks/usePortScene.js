@@ -3,6 +3,7 @@ import esriConfig from "@arcgis/core/config.js";
 import WebScene from "@arcgis/core/WebScene.js";
 import GraphicsLayer from "@arcgis/core/layers/GraphicsLayer.js";
 import {
+  START_SLIDE_TITLE,
   VESSEL_OUTLINES_LAYER_TITLE,
   VESSELS_LAYER_TITLE,
   WEBSCENE_ITEM_ID,
@@ -74,6 +75,13 @@ export function usePortScene(sceneRef, enabled) {
         // authored with (the Sun & shadow tool can still change it).
         sceneElement.view.environment.lighting = { type: "sun", date: new Date() };
 
+        const startViewpoint =
+          webscene.presentation?.slides?.find((slide) => slide.title?.text?.trim() === START_SLIDE_TITLE)
+            ?.viewpoint ?? null;
+        if (startViewpoint) {
+          sceneElement.view.goTo(startViewpoint, { duration: 2500 }).catch(() => {});
+        }
+
         setScene({
           status: "ready",
           error: null,
@@ -84,6 +92,7 @@ export function usePortScene(sceneRef, enabled) {
           markupLayer,
           zonesLayer,
           slides: webscene.presentation?.slides?.toArray() ?? [],
+          startViewpoint,
         });
       } catch (err) {
         if (cancelled) return;

@@ -8,6 +8,15 @@ export const WEBSCENE_ITEM_ID = "ef2c4525126a4a26a5310b8ff90f8aba";
 export const VESSELS_LAYER_TITLE = "Vessels";
 export const VESSEL_OUTLINES_LAYER_TITLE = "Vessel outlines";
 
+// Saved view (WebScene slide) used as the starting camera and Home view;
+// the WebScene's own initial viewpoint is a whole-globe view.
+export const START_SLIDE_TITLE = "Cork Harbour";
+
+// The AIS feed covers all Irish/UK waters, so counts and alerts are
+// limited to this approximate box around Cork Harbour — from the city
+// quays out past Roches Point to the pilot boarding grounds.
+export const HARBOUR_BOUNDS = { south: 51.72, north: 51.92, west: -8.5, east: -8.15 };
+
 // Port of Cork shipping schedule (40Geo Raptor Geo-IoT), public service.
 export const MOVEMENTS_URL =
   "https://utility.arcgis.com/usrsvcs/servers/1c876bed756644a1b7916b0107d01cd8/rest/services/geoiot/port-of-cork-movements/FeatureServer/1";

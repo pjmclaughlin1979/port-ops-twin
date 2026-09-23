@@ -1,33 +1,35 @@
 import { useMemo, useState } from "react";
-import { CATEGORIES, isUnderway, vesselCategory } from "../../lib/vessels.js";
+import { CATEGORIES, formatStatus, isUnderway, vesselCategory } from "../../lib/vessels.js";
 import { formatAge, formatNumber, titleCase } from "../../lib/format.js";
 import { Loading, Row, RowList, Segmented, Stat } from "../ui.jsx";
 
 const FILTERS = [
-  { value: "all", label: "All" },
+  { value: "harbour", label: "Harbour" },
   { value: "underway", label: "Underway" },
   { value: "stationary", label: "Stationary" },
+  { value: "feed", label: "Whole feed" },
 ];
 
-export default function TrafficTool({ vesselsState, alerts, thresholds, onFocus }) {
-  const { status, vessels, updatedAt, error } = vesselsState;
+export default function TrafficTool({ vesselsState, harbourVessels, alerts, thresholds, onFocus }) {
+  const { status, vessels: feedVessels, updatedAt, error } = vesselsState;
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState("all");
+  const [filter, setFilter] = useState("harbour");
 
-  const underwayCount = useMemo(() => vessels.filter(isUnderway).length, [vessels]);
+  const underwayCount = useMemo(() => harbourVessels.filter(isUnderway).length, [harbourVessels]);
 
   const breakdown = useMemo(() => {
     const counts = new Map();
-    for (const vessel of vessels) {
+    for (const vessel of harbourVessels) {
       const category = vesselCategory(vessel.type);
       counts.set(category, (counts.get(category) ?? 0) + 1);
     }
     return [...counts.entries()].sort((a, b) => b[1] - a[1]);
-  }, [vessels]);
+  }, [harbourVessels]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return vessels.filter((vessel) => {
+    const base = filter === "feed" ? feedVessels : harbourVessels;
+    return base.filter((vessel) => {
       if (filter === "underway" && !isUnderway(vessel)) return false;
       if (filter === "stationary" && isUnderway(vessel)) return false;
       if (!q) return true;
@@ -35,10 +37,10 @@ export default function TrafficTool({ vesselsState, alerts, thresholds, onFocus 
         .filter(Boolean)
         .some((field) => field.toLowerCase().includes(q));
     });
-  }, [vessels, query, filter]);
+  }, [feedVessels, harbourVessels, query, filter]);
 
-  if (status === "loading" && vessels.length === 0) return <Loading label="Loading AIS traffic" />;
-  if (status === "error" && vessels.length === 0) {
+  if (status === "loading" && feedVessels.length === 0) return <Loading label="Loading AIS traffic" />;
+  if (status === "error" && feedVessels.length === 0) {
     return <calcite-notice open kind="danger" icon="exclamation-mark-triangle"><div slot="message">{error}</div></calcite-notice>;
   }
 
@@ -48,11 +50,13 @@ export default function TrafficTool({ vesselsState, alerts, thresholds, onFocus 
   return (
     <div className="tool">
       <div className="stats">
-        <Stat label="In harbour" value={vessels.length} />
+        <Stat label="In harbour" value={harbourVessels.length} />
         <Stat label="Underway" value={underwayCount} />
-        <Stat label="Stationary" value={vessels.length - underwayCount} />
+        <Stat label="Stationary" value={harbourVessels.length - underwayCount} />
       </div>
-      <p className="muted small">AIS updated {formatAge(updatedAt)}</p>
+      <p className="muted small">
+        Within Cork Harbour · {feedVessels.length} vessels in the wider AIS feed · updated {formatAge(updatedAt)}
+      </p>
 
       <calcite-block heading="By vessel type" collapsible expanded>
         <div className="bars">
@@ -73,7 +77,7 @@ export default function TrafficTool({ vesselsState, alerts, thresholds, onFocus 
 
       <calcite-block
         heading={`Alerts (${alertCount})`}
-        description={`Over ${thresholds.speedKnots} kn · no AIS for ${thresholds.staleMinutes}+ min`}
+        description={`Over ${thresholds.speedKnots} kn · silent ${thresholds.staleMinutes}+ min while underway`}
         collapsible
         expanded
       >
@@ -93,7 +97,7 @@ export default function TrafficTool({ vesselsState, alerts, thresholds, onFocus 
             <Row
               key={`stale-${vessel.id}`}
               title={vessel.name}
-              subtitle="AIS not reporting"
+              subtitle="AIS silent while underway"
               meta={formatAge(vessel.timestamp)}
               tone="warning"
               category={vesselCategory(vessel.type)}
@@ -120,9 +124,7 @@ export default function TrafficTool({ vesselsState, alerts, thresholds, onFocus 
               <Row
                 key={vessel.id}
                 title={vessel.name}
-                subtitle={[titleCase(vessel.type), vessel.status && titleCase(vessel.status)]
-                  .filter(Boolean)
-                  .join(" · ")}
+                subtitle={[titleCase(vessel.type), formatStatus(vessel.status)].filter(Boolean).join(" · ")}
                 meta={formatNumber(vessel.speed, 1, " kn")}
                 category={vesselCategory(vessel.type)}
                 onClick={() => onFocus(vessel)}

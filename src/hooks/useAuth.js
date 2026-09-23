@@ -1,19 +1,24 @@
 import { useCallback, useEffect, useState } from "react";
-import OAuthInfo from "@arcgis/core/identity/OAuthInfo.js";
-import esriId from "@arcgis/core/identity/IdentityManager.js";
 import { PORTAL_URL } from "../config.js";
 
 // Public browser client (Authorization Code + PKCE, no secret).
 const CLIENT_ID = import.meta.env.VITE_ARCGIS_OAUTH_CLIENT_ID;
 const SHARING_URL = `${PORTAL_URL}/sharing`;
 
-let registered = false;
-function registerOAuth() {
-  if (registered || !CLIENT_ID) return;
-  esriId.registerOAuthInfos([
-    new OAuthInfo({ appId: CLIENT_ID, portalUrl: PORTAL_URL, popup: false, flowType: "auto" }),
-  ]);
-  registered = true;
+// Imported on demand so the sign-in screen can render before the SDK's
+// identity code has downloaded. Registration happens once, on first load.
+let identityPromise = null;
+function loadIdentity() {
+  identityPromise ??= Promise.all([
+    import("@arcgis/core/identity/OAuthInfo.js"),
+    import("@arcgis/core/identity/IdentityManager.js"),
+  ]).then(([{ default: OAuthInfo }, { default: esriId }]) => {
+    esriId.registerOAuthInfos([
+      new OAuthInfo({ appId: CLIENT_ID, portalUrl: PORTAL_URL, popup: false, flowType: "auto" }),
+    ]);
+    return esriId;
+  });
+  return identityPromise;
 }
 
 export function useAuth() {
@@ -29,9 +34,8 @@ export function useAuth() {
       return;
     }
     let cancelled = false;
-    registerOAuth();
-    esriId
-      .checkSignInStatus(SHARING_URL)
+    loadIdentity()
+      .then((esriId) => esriId.checkSignInStatus(SHARING_URL))
       .then((credential) => {
         if (!cancelled) setState({ status: "signed-in", username: credential.userId, error: null });
       })
@@ -46,13 +50,14 @@ export function useAuth() {
   // popup: false navigates the page to ArcGIS Online and back, so this
   // promise never settles in the current page.
   const signIn = useCallback(() => {
-    registerOAuth();
-    esriId.getCredential(SHARING_URL);
+    loadIdentity().then((esriId) => esriId.getCredential(SHARING_URL));
   }, []);
 
   const signOut = useCallback(() => {
-    esriId.destroyCredentials();
-    window.location.reload();
+    loadIdentity().then((esriId) => {
+      esriId.destroyCredentials();
+      window.location.reload();
+    });
   }, []);
 
   return { ...state, signIn, signOut };

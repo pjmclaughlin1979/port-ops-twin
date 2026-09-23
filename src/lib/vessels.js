@@ -1,3 +1,5 @@
+import { HARBOUR_BOUNDS } from "../config.js";
+
 // Coarse buckets shared by AIS vessel types ("Cargo", "Tug", …) and the
 // schedule's VESSEL_TYPE ("CONTAINER SHIP (FULLY CELLULAR)", …), used for
 // colour-coding and the traffic breakdown.
@@ -37,3 +39,30 @@ export function normalizeTimestamp(value) {
 }
 
 export const isUnderway = (vessel) => (vessel.speed ?? 0) >= 1;
+
+export const isInHarbour = (vessel) =>
+  vessel.latitude != null &&
+  vessel.latitude >= HARBOUR_BOUNDS.south &&
+  vessel.latitude <= HARBOUR_BOUNDS.north &&
+  vessel.longitude >= HARBOUR_BOUNDS.west &&
+  vessel.longitude <= HARBOUR_BOUNDS.east;
+
+const STATUS_LABELS = {
+  UnderWayEngine: "Under way (engine)",
+  UnderWaySailing: "Under way (sailing)",
+  AtAnchor: "At anchor",
+  Moored: "Moored",
+  Aground: "Aground",
+  Fishing: "Fishing",
+  NotUnderCommand: "Not under command",
+  RestrictedManeuv: "Restricted manoeuvrability",
+  ConstrainedByDraught: "Constrained by draught",
+  TowingAstern: "Towing astern",
+  PushingAhead: "Pushing ahead",
+};
+
+// AIS navigational status arrives as camel-case codes ("UnderWayEngine").
+export function formatStatus(status) {
+  if (!status || status === "Undefined") return null;
+  return STATUS_LABELS[status] ?? status.replace(/([a-z])([A-Z])/g, "$1 $2");
+}
