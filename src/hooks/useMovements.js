@@ -21,7 +21,7 @@ function toMovement(attributes, index) {
 // The schedule is a public REST service, independent of the WebScene, so
 // it's fetched directly rather than through the SDK.
 export function useMovements() {
-  const [state, setState] = useState({ status: "loading", movements: [], error: null });
+  const [state, setState] = useState({ status: "loading", movements: [], updatedAt: null, error: null });
 
   useEffect(() => {
     let cancelled = false;
@@ -42,7 +42,7 @@ export function useMovements() {
         if (data.error) throw new Error(data.error.message ?? "Schedule query failed");
         if (cancelled) return;
         const movements = (data.features ?? []).map((f, i) => toMovement(f.attributes, i));
-        setState({ status: "ready", movements, error: null });
+        setState({ status: "ready", movements, updatedAt: Date.now(), error: null });
       } catch (err) {
         if (cancelled) return;
         console.error("Failed to fetch the shipping schedule", err);

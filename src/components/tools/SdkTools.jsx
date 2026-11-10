@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { Segmented, ToolIntro } from "../ui.jsx";
+import { ToolIntro } from "../ui.jsx";
 
 // Thin wrappers around ArcGIS 5.x map components. Each one attaches to the
 // <arcgis-scene id="port-scene"> through referenceElement, and is only
@@ -7,38 +6,23 @@ import { Segmented, ToolIntro } from "../ui.jsx";
 // interactive analysis from the scene.
 export const SCENE_ID = "port-scene";
 
-export function MeasureTool() {
-  const [mode, setMode] = useState("distance");
-  return (
-    <div className="tool">
-      <ToolIntro>Measure quay lengths, clearances and yard areas directly on the 3D scene.</ToolIntro>
-      <Segmented
-        value={mode}
-        onChange={setMode}
-        label="Measurement type"
-        options={[
-          { value: "distance", label: "Distance" },
-          { value: "area", label: "Area" },
-        ]}
-      />
-      {mode === "distance" ? (
-        <arcgis-direct-line-measurement-3d key="distance" referenceElement={SCENE_ID} />
-      ) : (
-        <arcgis-area-measurement-3d key="area" referenceElement={SCENE_ID} />
-      )}
-    </div>
-  );
-}
-
-export function VolumeTool() {
+export function AnalysisTool() {
   return (
     <div className="tool">
       <ToolIntro>
-        Estimate bulk stockpile volumes (aggregates, grain, scrap) or cut-and-fill for yard works by
-        drawing around the area. Works on the photorealistic mesh; results depend on zoom level.
-        This component is in preview in ArcGIS 5.1.
+        Measure distances and areas, estimate bulk stockpile volumes (aggregates, grain, scrap) or
+        cut-and-fill for yard works, and chart the ground profile along a quay or approach. Pick a
+        tool from the bar, then click on the scene. Volume works on the photorealistic mesh and its
+        results depend on zoom level.
       </ToolIntro>
-      <arcgis-volume-measurement referenceElement={SCENE_ID} />
+      {/* The container shows one child at a time and builds its switcher
+          from each child's icon and label. */}
+      <arcgis-exploratory-analysis>
+        <arcgis-direct-line-measurement-3d referenceElement={SCENE_ID} />
+        <arcgis-area-measurement-3d referenceElement={SCENE_ID} />
+        <arcgis-volume-measurement referenceElement={SCENE_ID} />
+        <arcgis-elevation-profile referenceElement={SCENE_ID} />
+      </arcgis-exploratory-analysis>
     </div>
   );
 }
@@ -90,15 +74,6 @@ export function SliceTool() {
     <div className="tool">
       <ToolIntro>Cut through buildings, sheds and terminal structures to inspect their interiors.</ToolIntro>
       <arcgis-slice referenceElement={SCENE_ID} />
-    </div>
-  );
-}
-
-export function ProfileTool() {
-  return (
-    <div className="tool">
-      <ToolIntro>Draw a line to chart the ground and surface profile along a quay, road or approach.</ToolIntro>
-      <arcgis-elevation-profile referenceElement={SCENE_ID} />
     </div>
   );
 }

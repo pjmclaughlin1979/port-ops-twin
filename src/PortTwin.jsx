@@ -12,25 +12,24 @@ import { useSafetyZone } from "./hooks/useSafetyZone.js";
 import { useNow } from "./hooks/useNow.js";
 import { isInHarbour, isUnderway, normalizeName } from "./lib/vessels.js";
 import { toSceneWeather } from "./lib/weather.js";
-import { formatNumber, formatTime } from "./lib/format.js";
+import { formatAge, formatNumber, formatTime } from "./lib/format.js";
+import { staleFeeds } from "./lib/freshness.js";
 import TrafficTool from "./components/tools/TrafficTool.jsx";
 import ScheduleTool from "./components/tools/ScheduleTool.jsx";
 import BerthPlannerTool from "./components/tools/BerthPlannerTool.jsx";
 import ConditionsTool from "./components/tools/ConditionsTool.jsx";
 import SafetyZoneTool from "./components/tools/SafetyZoneTool.jsx";
 import {
+  AnalysisTool,
   BasemapTool,
   LayersTool,
   LegendTool,
   LineOfSightTool,
   MarkupTool,
-  MeasureTool,
-  ProfileTool,
   SCENE_ID,
   SliceTool,
   SunShadowTool,
   ViewsTool,
-  VolumeTool,
   WeatherTool,
 } from "./components/tools/SdkTools.jsx";
 import { Loading } from "./components/ui.jsx";
@@ -49,13 +48,11 @@ const TOOL_GROUPS = [
   {
     label: "Analysis",
     tools: [
-      { id: "measure", text: "Measure", icon: "measure" },
-      { id: "volume", text: "Stockpile volume", icon: "cut-and-fill-volume-calculation" },
+      { id: "measure", text: "Measure & analyse", icon: "measure" },
       { id: "sight", text: "Line of sight", icon: "line-of-sight" },
       { id: "shadow", text: "Sun & shadow", icon: "measure-building-height-shadow" },
       { id: "weather", text: "Weather simulation", icon: "rain" },
       { id: "slice", text: "Slice", icon: "slice" },
-      { id: "profile", text: "Elevation profile", icon: "absolute-elevation" },
       { id: "markup", text: "Markup", icon: "pencil" },
     ],
   },
@@ -102,6 +99,8 @@ export default function PortTwin({ username, onSignOut }) {
     [harbourVessels, thresholds, now]
   );
 
+  const stale = staleFeeds({ vesselsState, movementsState, conditions }, now);
+
   const current = conditions.current;
   const conditionBreaches = current
     ? [
@@ -140,6 +139,55 @@ export default function PortTwin({ username, onSignOut }) {
     [vessels, focusVessel]
   );
 
+  // Enter on the keyboard target opens details for what's inside it. The
+  // SDK's own handling needs its beta popup component, so do it here with
+  // the popup the rest of the app uses.
+  const vesselsRef = useRef(vessels);
+  vesselsRef.current = vessels;
+  useEffect(() => {
+    const sceneElement = sceneRef.current;
+    const view = scene.view;
+    if (!sceneElement || !view) return;
+    const onSelect = async (event) => {
+      event.preventDefault();
+      const region = sceneElement.focusRegion;
+      if (!region) return;
+      const { results } = await view.hitTest(region);
+      const seen = new Set();
+      const features = [];
+      for (const result of results) {
+        const graphic = result.type === "graphic" ? result.graphic : null;
+        if (!graphic || !graphic.getEffectivePopupTemplate?.()) continue;
+        const key = `${graphic.layer?.id ?? "view"}:${graphic.getObjectId?.() ?? graphic.uid}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        // Hit-test graphics only carry the fields needed for drawing, so
+        // swap vessels for the full records already loaded.
+        const vessel =
+          graphic.layer === scene.vesselsLayer
+            ? vesselsRef.current.find((v) => v.id === graphic.getObjectId())
+            : null;
+        features.push(vessel?.graphic ?? graphic);
+      }
+      if (features.length === 0) {
+        setNotice("Nothing in the keyboard target. Move the map with the arrow keys and try again.");
+        return;
+      }
+      view.openPopup({ features, location: features[0].geometry });
+    };
+    sceneElement.addEventListener("arcgisViewFocusRegionSelect", onSelect);
+    return () => sceneElement.removeEventListener("arcgisViewFocusRegionSelect", onSelect);
+  }, [scene.view, scene.vesselsLayer]);
+
+  // The focus region is a keyboard target in the middle of the view:
+  // Enter opens details for the features inside it.
+  const toggleFocusRegion = () => {
+    const sceneElement = sceneRef.current;
+    if (!sceneElement) return;
+    sceneElement.focusRegionVisible = !sceneElement.focusRegionVisible;
+    if (sceneElement.focusRegionVisible) sceneElement.view?.focus();
+  };
+
   const toggleTool = (id) => setActiveTool((currentTool) => (currentTool === id ? null : id));
   const activeDef = ALL_TOOLS.find((tool) => tool.id === activeTool);
 
@@ -173,9 +221,7 @@ export default function PortTwin({ username, onSignOut }) {
       case "zone":
         return <SafetyZoneTool view={scene.view} vessels={vessels} safetyZone={safetyZone} onFocus={focusVessel} />;
       case "measure":
-        return <MeasureTool />;
-      case "volume":
-        return <VolumeTool />;
+        return <AnalysisTool />;
       case "sight":
         return <LineOfSightTool />;
       case "shadow":
@@ -184,8 +230,6 @@ export default function PortTwin({ username, onSignOut }) {
         return <WeatherTool mirrorWeather={mirrorWeather} />;
       case "slice":
         return <SliceTool />;
-      case "profile":
-        return <ProfileTool />;
       case "markup":
         return <MarkupTool markupLayer={scene.markupLayer} />;
       case "layers":
@@ -210,6 +254,14 @@ export default function PortTwin({ username, onSignOut }) {
           description="Cork Harbour, live"
         />
         <div slot="content-end" className="status-strip">
+          {stale.length > 0 && (
+            <span className="status-pill status-pill--danger status-pill--static" role="status">
+              Not updating:{" "}
+              {stale
+                .map((feed) => `${feed.label} (${feed.updatedAt ? `last ${formatAge(feed.updatedAt, now)}` : "unavailable"})`)
+                .join(", ")}
+            </span>
+          )}
           <button type="button" className="status-pill" onClick={() => setActiveTool("traffic")}>
             <strong>{harbourVessels.length}</strong> in harbour · {harbourVessels.filter(isUnderway).length} underway
           </button>
@@ -279,11 +331,18 @@ export default function PortTwin({ username, onSignOut }) {
       </calcite-shell-panel>
 
       <div className="scene-wrap">
-        <arcgis-scene id={SCENE_ID} ref={sceneRef}>
+        <arcgis-scene id={SCENE_ID} ref={sceneRef} focusRegionShortcutEnabled>
           <arcgis-zoom slot="top-right" />
           <arcgis-navigation-toggle slot="top-right" />
           <arcgis-compass slot="top-right" />
           <arcgis-home slot="top-right" viewpoint={scene.startViewpoint ?? undefined} />
+          <calcite-action
+            slot="top-right"
+            className="scene-action"
+            icon="crosshair"
+            text="Keyboard target: move the map with the arrow keys, then press Enter for vessel details (Shift+Alt+O)"
+            onClick={toggleFocusRegion}
+          />
         </arcgis-scene>
         {scene.status !== "ready" && (
           <div className="scene-overlay">

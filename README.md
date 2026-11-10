@@ -1,6 +1,6 @@
 # Port of Cork · Operations Twin
 
-React 19 + Vite app on the ArcGIS Maps SDK for JavaScript 5.1 (map components + Calcite),
+React 19 + Vite app on the ArcGIS Maps SDK for JavaScript 5.2 (map components + Calcite),
 built on the Cork Harbour WebScene (`ef2c4525126a4a26a5310b8ff90f8aba`).
 
 ## Setup
@@ -26,8 +26,14 @@ timeline derived from the schedule, flags shared berth windows) · Marine condit
 visibility, waves vs. configurable limits, 24 h gust outlook, tide curve, live weather mirrored
 into the scene) · Safety zone (exclusion radius around a point or a moving vessel, vessels inside).
 
-**Analysis** (ArcGIS components) — distance/area measurement, stockpile volume (preview), line of
-sight, daylight + shadow cast, weather simulation, slice, elevation profile, markup (sketch).
+**Analysis** (ArcGIS components) — Measure & analyse (distance, area, stockpile volume and elevation
+profile in one exploratory-analysis container, beta in 5.2), line of sight, daylight + shadow cast,
+weather simulation, slice, markup (sketch).
+
+**Keyboard target** — Shift+Alt+O (or the crosshair button) shows a focus region in the middle of
+the scene; Enter opens details for the features inside it.
+
+**Stale data** — the header warns when a feed has missed three refreshes in a row.
 
 **Map** — layer list, legend, basemap gallery, saved views (WebScene slides), vessel attribute table.
 

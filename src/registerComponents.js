@@ -41,5 +41,6 @@ import "@arcgis/map-components/components/arcgis-shadow-cast";
 import "@arcgis/map-components/components/arcgis-weather";
 import "@arcgis/map-components/components/arcgis-slice";
 import "@arcgis/map-components/components/arcgis-elevation-profile";
+import "@arcgis/map-components/components/arcgis-exploratory-analysis";
 import "@arcgis/map-components/components/arcgis-sketch";
 import "@arcgis/map-components/components/arcgis-feature-table";

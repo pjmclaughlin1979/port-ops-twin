@@ -102,6 +102,15 @@ body {
   color: var(--tone-danger);
 }
 
+.status-pill--static {
+  cursor: default;
+  font-weight: 600;
+}
+
+.status-pill--static:hover {
+  background: var(--calcite-color-foreground-2);
+}
+
 .status-clock {
   font-variant-numeric: tabular-nums;
   font-size: 0.85rem;
